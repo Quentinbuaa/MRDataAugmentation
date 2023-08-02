@@ -135,11 +135,13 @@ def GetMRs():
     invert_mr.SetM([5000])
     shift_mr = HorizontalTranslation(5)
     shift_mr.SetM([15000])
-    return [shift_mr]
+    scale_mr = Scale(0.4)
+    scale_mr.SetM([1500])
+    return [scale_mr]
 
 
 
-def main():
+def main(n_samples):
     # Training settings
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N',
@@ -196,9 +198,6 @@ def main():
                        transform=transform)
     dataset2 = datasets.MNIST('data', train=False,
                        transform=transform)
-   # m = args.m
-    #m_list = [20000]
-    m_list = range(1000,20000,5000)
     #target_mr_transform_list = [TF.invert,Rotate(),Scale(0.9)]
     #target_mr_transform_list = [Invert(), Rotate(10), Scale(0.4), HorizontalTranslation(5), VerticalTranslation(5), Shear(30)]
     #target_mr_transform_list = [Scale(0.4), HorizontalTranslation(5), VerticalTranslation(5), Shear(30)]
@@ -211,29 +210,31 @@ def main():
         result_list = []
         for tf_index in range(len(target_mr_transform_list)):
             for m in target_mr_transform_list[tf_index].GetM():
-                target_mr_transform = target_mr_transform_list[tf_index]
-                dataset1 =GetDataset(strategy, dataset1, m, target_mr_transform)
-                train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
-                test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
-                #model = Net().to(device) # Some net.
-                model.load_state_dict(torch.load(checkpoint_file))
-                model.to(device)
-                #model= LeNet5().to(device) # The LeNet5
-                #optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
-                optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
-                scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-                for epoch in range(1, args.epochs + 1):
-                    train(args, model, device, train_loader, optimizer, epoch)
-                    scheduler.step()
-                acc = test(model, device, test_loader)
-                mts = mt(model, device, test_loader, target_mr_transform)
-                result = [m, tf_index, acc, mts]
-                result_list.append(result)
-                file = getFileName(strategy, target_mr_transform.name)
-        save_info(result_list, file)
+                for sample in range(n_samples):
+                    target_mr_transform = target_mr_transform_list[tf_index]
+                    dataset1 =GetDataset(strategy, dataset1, m, target_mr_transform)
+                    train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
+                    test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
+                    #model = Net().to(device) # Some net.
+                    model.load_state_dict(torch.load(checkpoint_file))
+                    model.to(device)
+                    #model= LeNet5().to(device) # The LeNet5
+                    #optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
+                    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, betas=(0.9, 0.99))
+                    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+                    for epoch in range(1, args.epochs + 1):
+                        train(args, model, device, train_loader, optimizer, epoch)
+                        scheduler.step()
+                    acc = test(model, device, test_loader)
+                    mts = mt(model, device, test_loader, target_mr_transform)
+                    result = [m, tf_index, acc, mts]
+                    result_list.append(result)
+                    file = getFileName(strategy, target_mr_transform.name)
+            save_info(result_list, file)
     if args.save_model:
         torch.save(model.state_dict(), "mnist_cnn.pt")
 
 
 if __name__ == '__main__':
-    main()
+    n_samples = 10
+    main(n_samples)
